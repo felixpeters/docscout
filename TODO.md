@@ -7,11 +7,11 @@
 
 ## Phase 0: Project Scaffolding
 
-- [ ] Create `pyproject.toml` with all metadata, dependencies, scripts entry point, build system, ruff + pytest config (copy from spec)
-- [ ] Create `src/docscout/__init__.py` exposing `__version__ = "0.1.0"`
-- [ ] Create empty module files: `cli.py`, `models.py`, `parsing.py`, `cache.py`, `scanner.py`, `categories.py`, `display.py`
-- [ ] Create `tests/` directory with empty `conftest.py`
-- [ ] Verify `pip install -e ".[dev]"` (or `uv pip install -e .`) succeeds and `docscout --help` prints without error (stub Typer app)
+- [x] Create `pyproject.toml` with all metadata, dependencies, scripts entry point, build system, ruff + pytest config (copy from spec)
+- [x] Create `src/docscout/__init__.py` exposing `__version__ = "0.1.0"`
+- [x] Create empty module files: `cli.py`, `models.py`, `parsing.py`, `cache.py`, `scanner.py`, `categories.py`, `display.py`
+- [x] Create `tests/` directory with empty `conftest.py`
+- [x] Verify `pip install -e ".[dev]"` (or `uv pip install -e .`) succeeds and `docscout --help` prints without error (stub Typer app)
 
 ---
 
