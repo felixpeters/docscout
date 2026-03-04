@@ -31,7 +31,7 @@ def _convert_to_pdf(source: Path) -> Path:
 
     tmpdir = tempfile.mkdtemp(prefix="docscout-")
     cmd = [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(source)]
-    log(f"  Converting to PDF via LibreOffice ...")
+    log("  Converting to PDF via LibreOffice ...")
     proc = subprocess.run(cmd, capture_output=True, timeout=120)
     if proc.returncode != 0:
         raise RuntimeError(
@@ -102,13 +102,13 @@ def parse_file(
             format_options[InputFormat.PDF] = PdfFormatOption(
                 pipeline_options=pipeline_options
             )
-            log(f"  Image generation enabled (scale=2.0)")
+            log("  Image generation enabled (scale=2.0)")
 
         converter = DocumentConverter(format_options=format_options)
         result = converter.convert(str(parse_path))
         doc = result.document
 
-        log(f"  Conversion complete, extracting metrics ...")
+        log("  Conversion complete, extracting metrics ...")
 
         # Word and char count from exported text
         text = doc.export_to_markdown()

@@ -145,8 +145,8 @@ class TestScanDirectory:
             summary = scan_directory(sample_dir, cache=None, no_cache=True)
             # 2 pdf + 1 docx = 3 supported files parsed
             assert summary.analyzed_files == 3
-            assert summary.total_pages == 30  # 10 * 3
-            assert summary.total_words == 1500  # 500 * 3
+            assert summary.pages_stats.total == 30  # 10 * 3
+            assert summary.words_stats.total == 1500  # 500 * 3
 
     def test_empty_directory(self, tmp_path):
         summary = scan_directory(tmp_path, cache=None, no_cache=True)
