@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from docscout.models import DirectorySummary, FileResult
+from docscout.models import DirectorySummary, FileResult, MetricStats
 
 console = Console()
 
@@ -86,18 +86,56 @@ def render_file_result(result: FileResult) -> None:
             console.print(f"  [yellow]Warning:[/yellow] {warn}")
 
 
+def _file_link(path: str, root: str) -> str:
+    """Format a relative file path as a clickable terminal hyperlink."""
+    from pathlib import Path
+
+    abs_path = Path(root) / path
+    return f"[link=file://{abs_path}]{path}[/link]"
+
+
+def _stats_row(label: str, stats: MetricStats, root: str, fmt: str = ",") -> list[str]:
+    """Build a table row from MetricStats."""
+    return [
+        label,
+        f"{stats.total:,}",
+        f"{stats.avg:{fmt}}",
+        f"{stats.std:{fmt}}",
+        f"{stats.median:{fmt}}",
+        f"{stats.min:,}  [dim]({_file_link(stats.min_file, root)})[/dim]",
+        f"{stats.max:,}  [dim]({_file_link(stats.max_file, root)})[/dim]",
+    ]
+
+
 def render_directory_summary(summary: DirectorySummary) -> None:
     """Render directory aggregate summary panel and filetype distribution."""
-    title = f"{summary.root_path} ({summary.analyzed_files} documents)"
+    title = f"[bold]{summary.root_path}[/bold]  ·  {summary.analyzed_files} documents analyzed"
 
-    lines: list[str] = []
-    lines.append(f"Pages:    {summary.total_pages:,}    Tables:  {summary.total_tables:,}")
-    lines.append(f"Words:    {summary.total_words:,}    Figures: {summary.total_figures:,}")
-    lines.append(f"Avg pages/doc: {summary.avg_pages:.1f}")
-    lines.append(f"Avg words/doc: {summary.avg_words:,.0f}")
+    # Build stats table
+    stats_table = Table(
+        title=title,
+        show_header=True,
+        header_style="bold cyan",
+        padding=(0, 1),
+        expand=False,
+    )
+    stats_table.add_column("Metric", style="bold")
+    stats_table.add_column("Total", justify="right")
+    stats_table.add_column("Avg", justify="right")
+    stats_table.add_column("Std", justify="right")
+    stats_table.add_column("Median", justify="right")
+    stats_table.add_column("Min (file)", justify="right", no_wrap=False)
+    stats_table.add_column("Max (file)", justify="right", no_wrap=False)
 
-    panel = Panel("\n".join(lines), title=title, expand=False)
-    console.print(panel)
+    root = summary.root_path
+    stats_table.add_row(*_stats_row("Pages", summary.pages_stats, root))
+    stats_table.add_row(*_stats_row("Words", summary.words_stats, root))
+    stats_table.add_row(*_stats_row("Tables", summary.tables_stats, root))
+    stats_table.add_row(*_stats_row("Figures", summary.figures_stats, root))
+
+    console.print()
+    console.print(stats_table)
+    console.print()
 
     if summary.filetype_distribution:
         table = Table(title="Filetype Distribution")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -11,7 +12,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 from docscout.cache import Cache
 from docscout.categories import get_category, is_supported
 from docscout.logging import log
-from docscout.models import DirectorySummary, FileResult, FiletypeCount
+from docscout.models import DirectorySummary, FileResult, FiletypeCount, MetricStats
 from docscout.parsing import parse_file
 
 
@@ -136,32 +137,46 @@ def scan_directory(
     analyzed = [r for r in file_results if r.parsed]
     files_with_errors = sum(1 for r in file_results if r.parse_errors)
 
-    total_pages = sum(r.page_count or 0 for r in analyzed)
-    total_words = sum(r.word_count or 0 for r in analyzed)
     total_chars = sum(r.char_count or 0 for r in analyzed)
-    total_tables = sum(r.table_count or 0 for r in analyzed)
-    total_figures = sum(r.figure_count or 0 for r in analyzed)
     total_headings = sum(r.heading_count or 0 for r in analyzed)
     total_sections = sum(r.section_count or 0 for r in analyzed)
 
-    n = len(analyzed) or 1  # avoid division by zero
+    def _compute_stats(results: list[FileResult], attr: str) -> MetricStats:
+        values = [(getattr(r, attr) or 0, r.file_path) for r in results]
+        nums = [v for v, _ in values]
+        total = sum(nums)
+        if not nums:
+            return MetricStats(
+                total=0, avg=0, std=0, median=0, min=0, min_file="", max=0, max_file=""
+            )
+        avg = total / len(nums)
+        std = statistics.stdev(nums) if len(nums) > 1 else 0.0
+        med = statistics.median(nums)
+        min_val, min_file = min(values, key=lambda x: x[0])
+        max_val, max_file = max(values, key=lambda x: x[0])
+        return MetricStats(
+            total=total,
+            avg=round(avg, 1),
+            std=round(std, 1),
+            median=round(med, 1),
+            min=min_val,
+            min_file=min_file,
+            max=max_val,
+            max_file=max_file,
+        )
 
     return DirectorySummary(
         root_path=str(root),
         total_files=total_files,
         analyzed_files=len(analyzed),
         skipped_files=total_files - len(analyzed),
-        total_pages=total_pages,
-        total_words=total_words,
         total_chars=total_chars,
-        total_tables=total_tables,
-        total_figures=total_figures,
         total_headings=total_headings,
         total_sections=total_sections,
-        avg_pages=round(total_pages / n, 1),
-        avg_words=round(total_words / n, 1),
-        avg_tables=round(total_tables / n, 1),
-        avg_figures=round(total_figures / n, 1),
+        pages_stats=_compute_stats(analyzed, "page_count"),
+        words_stats=_compute_stats(analyzed, "word_count"),
+        tables_stats=_compute_stats(analyzed, "table_count"),
+        figures_stats=_compute_stats(analyzed, "figure_count"),
         filetype_distribution=filetype_distribution,
         files_with_errors=files_with_errors,
         file_results=file_results,

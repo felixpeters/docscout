@@ -6,7 +6,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from docscout.cli import app
-from docscout.models import DirectorySummary, FileResult
+from docscout.models import DirectorySummary, FileResult, MetricStats
 
 runner = CliRunner()
 
@@ -130,22 +130,46 @@ class TestSingleFile:
 
 class TestDirectory:
     def _mock_summary(self, root, files_with_errors=0):
+        _zero = MetricStats(total=0, avg=0, std=0, median=0, min=0, min_file="", max=0, max_file="")
         return DirectorySummary(
             root_path=str(root),
             total_files=2,
             analyzed_files=2,
             skipped_files=0,
-            total_pages=10,
-            total_words=500,
             total_chars=3000,
-            total_tables=1,
-            total_figures=0,
             total_headings=3,
             total_sections=2,
-            avg_pages=5.0,
-            avg_words=250.0,
-            avg_tables=0.5,
-            avg_figures=0.0,
+            pages_stats=MetricStats(
+                total=10,
+                avg=5.0,
+                std=0,
+                median=5.0,
+                min=5,
+                min_file="a.pdf",
+                max=5,
+                max_file="b.pdf",
+            ),
+            words_stats=MetricStats(
+                total=500,
+                avg=250.0,
+                std=0,
+                median=250.0,
+                min=250,
+                min_file="a.pdf",
+                max=250,
+                max_file="b.pdf",
+            ),
+            tables_stats=MetricStats(
+                total=1,
+                avg=0.5,
+                std=0.7,
+                median=0.5,
+                min=0,
+                min_file="a.pdf",
+                max=1,
+                max_file="b.pdf",
+            ),
+            figures_stats=_zero,
             filetype_distribution=[],
             files_with_errors=files_with_errors,
             file_results=[],

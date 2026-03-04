@@ -3,6 +3,19 @@
 from pydantic import BaseModel
 
 
+class MetricStats(BaseModel):
+    """Descriptive statistics for a single metric across analyzed files."""
+
+    total: int
+    avg: float
+    std: float
+    median: float
+    min: int
+    min_file: str  # Relative path of the file with the minimum value
+    max: int
+    max_file: str  # Relative path of the file with the maximum value
+
+
 class FiletypeCount(BaseModel):
     """Distribution entry for a single file type."""
 
@@ -47,19 +60,15 @@ class DirectorySummary(BaseModel):
     skipped_files: int  # Files detected but not analyzed
 
     # Aggregate content metrics (across analyzed files only)
-    total_pages: int
-    total_words: int
     total_chars: int
-    total_tables: int
-    total_figures: int
     total_headings: int
     total_sections: int
 
-    # Per-document averages (across analyzed files only)
-    avg_pages: float
-    avg_words: float
-    avg_tables: float
-    avg_figures: float
+    # Per-metric descriptive statistics (across analyzed files only)
+    pages_stats: MetricStats
+    words_stats: MetricStats
+    tables_stats: MetricStats
+    figures_stats: MetricStats
 
     # Filetype distribution
     filetype_distribution: list[FiletypeCount]
