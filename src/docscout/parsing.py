@@ -42,6 +42,7 @@ def parse_file(
     start = time.monotonic()
     try:
         from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.document import DocItem
         from docling.datamodel.pipeline_options import PdfPipelineOptions
         from docling.document_converter import DocumentConverter, PdfFormatOption
 
@@ -76,15 +77,75 @@ def parse_file(
             page_count = len(doc.pages)
         log(f"  Pages: {page_count}")
 
-        # Save page images if requested
+        # Save annotated page images if requested
         if save_images is not None and page_count > 0:
             save_images.mkdir(parents=True, exist_ok=True)
             stem = path.stem
+
+            # Collect bounding boxes per page from all items
+            from collections import defaultdict
+
+            from docling_core.types.doc.base import CoordOrigin
+            from PIL import ImageDraw
+
+            page_annotations: dict[int, list[tuple[str, tuple[float, ...]]]] = defaultdict(list)
+            for item, _lvl in doc.iterate_items():
+                if not isinstance(item, DocItem):
+                    continue
+                if not item.prov:
+                    continue
+                label = item.label.value if hasattr(item.label, "value") else str(item.label)
+                for prov in item.prov:
+                    bbox = prov.bbox
+                    page_annotations[prov.page_no].append(
+                        (label, (bbox.l, bbox.t, bbox.r, bbox.b, bbox.coord_origin))
+                    )
+
+            # Color map for different element types
+            label_colors = {
+                "table": "red",
+                "picture": "blue",
+                "section_header": "green",
+                "page_header": "orange",
+                "text": "gray",
+                "list_item": "purple",
+                "caption": "cyan",
+                "formula": "magenta",
+            }
+
             for page_no, page in doc.pages.items():
                 img_path = save_images / f"{stem}-page-{page_no}.png"
                 try:
-                    page.image.pil_image.save(str(img_path), format="PNG")
-                    log(f"  Saved page image: {img_path.name}")
+                    img = page.image.pil_image.copy()
+                    draw = ImageDraw.Draw(img)
+
+                    # Compute scale factor: image pixels / page points
+                    page_w = page.size.width if page.size else img.width
+                    page_h = page.size.height if page.size else img.height
+                    sx = img.width / page_w
+                    sy = img.height / page_h
+
+                    for label, (left, top, right, bot, coord_origin) in page_annotations.get(
+                        page_no, []
+                    ):
+                        # Convert from PDF coords (bottom-left origin) to image coords
+                        if coord_origin == CoordOrigin.BOTTOMLEFT:
+                            x0 = left * sx
+                            y0 = (page_h - top) * sy
+                            x1 = right * sx
+                            y1 = (page_h - bot) * sy
+                        else:
+                            x0 = left * sx
+                            y0 = top * sy
+                            x1 = right * sx
+                            y1 = bot * sy
+
+                        color = label_colors.get(label, "gray")
+                        draw.rectangle([x0, y0, x1, y1], outline=color, width=2)
+                        draw.text((x0, y0 - 12), label, fill=color)
+
+                    img.save(str(img_path), format="PNG")
+                    log(f"  Saved annotated page image: {img_path.name}")
                 except Exception as img_exc:
                     log(f"  Failed to save page image {page_no}: {img_exc}")
 
@@ -94,8 +155,6 @@ def parse_file(
         heading_count = 0
         heading_max_depth = 0
         section_count = 0
-
-        from docling.datamodel.document import DocItem
 
         items = list(doc.iterate_items())
         pages_signaled = 0

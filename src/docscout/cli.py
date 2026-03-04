@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from docscout import __version__
 from docscout.cache import Cache
@@ -56,7 +56,7 @@ def main(
         raise typer.Exit(code=1)
 
     if target.is_file():
-        _handle_file(target, format, images_dir)
+        _handle_file(target, format, images_dir, cache_dir, no_cache)
     elif target.is_dir():
         _handle_directory(target, format, detail, cache_dir, no_cache, images_dir)
     else:
@@ -64,7 +64,13 @@ def main(
         raise typer.Exit(code=1)
 
 
-def _handle_file(target: Path, fmt: str, save_images: Path | None) -> None:
+def _handle_file(
+    target: Path,
+    fmt: str,
+    save_images: Path | None,
+    cache_dir: str | None = None,
+    no_cache: bool = False,
+) -> None:
     ext = target.suffix.lower().lstrip(".")
     if not is_supported(ext):
         supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
@@ -76,24 +82,27 @@ def _handle_file(target: Path, fmt: str, save_images: Path | None) -> None:
 
     log(f"Analyzing single file: {target}")
 
-    show_progress = sys.stderr.isatty()
-    if show_progress:
-        with Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            transient=True,
-        ) as progress:
-            page_task = progress.add_task("Pages", total=0, visible=False)
+    cache_path = Path(cache_dir) if cache_dir else None
+    cache = Cache(cache_dir=cache_path)
 
-            def _on_page_done(current: int, total: int) -> None:
-                progress.update(page_task, completed=current, total=total, visible=True)
-
-            result = parse_file(
-                target, save_images=save_images, on_page_done=_on_page_done
-            )
+    cached = None if no_cache else cache.get(target)
+    if cached is not None:
+        log("Cache hit, skipping parse")
+        result = cached
     else:
-        result = parse_file(target, save_images=save_images)
+        show_progress = sys.stderr.isatty()
+        if show_progress:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[bold blue]Parsing {task.fields[filename]}..."),
+                transient=True,
+            ) as progress:
+                progress.add_task("parse", filename=target.name, total=None)
+                result = parse_file(target, save_images=save_images)
+        else:
+            result = parse_file(target, save_images=save_images)
+        if not no_cache and not result.parse_errors:
+            cache.put(target, result)
 
     if fmt == "json":
         typer.echo(result.model_dump_json(indent=2))

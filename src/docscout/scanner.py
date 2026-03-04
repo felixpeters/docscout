@@ -49,60 +49,35 @@ def scan_directory(
 
     log(f"Supported files to analyze: {len(supported_files)}")
 
-    # Check cache and parse supported files
-    to_parse: list[Path] = []
-    for f in supported_files:
-        if cache and not no_cache:
-            cached = cache.get(f)
-            if cached is not None:
-                log(f"Cache hit: {f.name}")
-                file_results.append(cached)
-                continue
-        to_parse.append(f)
+    log(f"Supported files to parse: {len(supported_files)}")
 
-    log(f"Files to parse (uncached): {len(to_parse)}")
+    # Process supported files with progress (cache check + parse)
+    show_progress = sys.stderr.isatty() and supported_files
+    if show_progress:
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TextColumn("{task.fields[status]}"),
+            transient=True,
+        ) as progress:
+            file_task = progress.add_task(
+                "Files", total=len(supported_files), status=""
+            )
 
-    # Parse with nested progress bars (only on terminal)
-    if to_parse:
-        show_progress = sys.stderr.isatty()
-        if show_progress:
-            with Progress(
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(),
-                MofNCompleteColumn(),
-                transient=True,
-            ) as progress:
-                file_task = progress.add_task(
-                    "Files", total=len(to_parse)
-                )
-                page_task = progress.add_task("Pages", total=0, visible=False)
+            for f in supported_files:
+                progress.update(file_task, status=f"  {f.name}")
 
-                for f in to_parse:
-                    progress.update(
-                        page_task, completed=0, total=0, visible=False
-                    )
+                # Check cache first
+                if cache and not no_cache:
+                    cached = cache.get(f)
+                    if cached is not None:
+                        log(f"Cache hit: {f.name}")
+                        file_results.append(cached)
+                        progress.advance(file_task)
+                        continue
 
-                    def _on_page_done(current: int, total: int) -> None:
-                        progress.update(
-                            page_task, completed=current, total=total, visible=True
-                        )
-
-                    result = parse_file(
-                        f,
-                        save_images=save_images,
-                        on_page_done=_on_page_done,
-                    )
-                    # Make path relative to root for display
-                    try:
-                        result.file_path = str(f.relative_to(root))
-                    except ValueError:
-                        pass
-                    file_results.append(result)
-                    if cache:
-                        cache.put(f, result)
-                    progress.advance(file_task)
-        else:
-            for f in to_parse:
+                # Parse uncached file
                 result = parse_file(f, save_images=save_images)
                 try:
                     result.file_path = str(f.relative_to(root))
@@ -111,6 +86,24 @@ def scan_directory(
                 file_results.append(result)
                 if cache:
                     cache.put(f, result)
+                progress.advance(file_task)
+            progress.update(file_task, status="")
+    else:
+        for f in supported_files:
+            if cache and not no_cache:
+                cached = cache.get(f)
+                if cached is not None:
+                    log(f"Cache hit: {f.name}")
+                    file_results.append(cached)
+                    continue
+            result = parse_file(f, save_images=save_images)
+            try:
+                result.file_path = str(f.relative_to(root))
+            except ValueError:
+                pass
+            file_results.append(result)
+            if cache:
+                cache.put(f, result)
 
     # Also make cached results relative
     for r in file_results:
