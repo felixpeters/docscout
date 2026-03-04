@@ -61,9 +61,7 @@ def scan_directory(
             TextColumn("{task.fields[status]}"),
             transient=True,
         ) as progress:
-            file_task = progress.add_task(
-                "Files", total=len(supported_files), status=""
-            )
+            file_task = progress.add_task("Files", total=len(supported_files), status="")
 
             for f in supported_files:
                 progress.update(file_task, status=f"  {f.name}")

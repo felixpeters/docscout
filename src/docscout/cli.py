@@ -126,9 +126,7 @@ def _handle_directory(
 
     log(f"Scanning directory: {target}")
 
-    summary = scan_directory(
-        target, cache=cache, no_cache=no_cache, save_images=save_images
-    )
+    summary = scan_directory(target, cache=cache, no_cache=no_cache, save_images=save_images)
 
     if fmt == "json":
         typer.echo(summary.model_dump_json(indent=2))

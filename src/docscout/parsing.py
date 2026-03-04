@@ -37,12 +37,12 @@ def parse_file(
     }
 
     if not is_supported(ext):
-        return FileResult(**base_result, parsed=False)
+        return FileResult(**base_result, parsed=False)  # type: ignore[arg-type]
 
     start = time.monotonic()
     try:
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.document import DocItem
+        from docling.datamodel.document import DocItem  # type: ignore[attr-defined]
         from docling.datamodel.pipeline_options import PdfPipelineOptions
         from docling.document_converter import DocumentConverter, PdfFormatOption
 
@@ -54,16 +54,14 @@ def parse_file(
             pipeline_options = PdfPipelineOptions()
             pipeline_options.generate_page_images = True
             pipeline_options.images_scale = 2.0
-            format_options[InputFormat.PDF] = PdfFormatOption(
-                pipeline_options=pipeline_options
-            )
-            log(f"  Image generation enabled (scale=2.0)")
+            format_options[InputFormat.PDF] = PdfFormatOption(pipeline_options=pipeline_options)
+            log("  Image generation enabled (scale=2.0)")
 
-        converter = DocumentConverter(format_options=format_options)
+        converter = DocumentConverter(format_options=format_options)  # type: ignore[arg-type]
         result = converter.convert(str(path))
         doc = result.document
 
-        log(f"  Conversion complete, extracting metrics ...")
+        log("  Conversion complete, extracting metrics ...")
 
         # Word and char count from exported text
         text = doc.export_to_markdown()
@@ -88,7 +86,7 @@ def parse_file(
             from docling_core.types.doc.base import CoordOrigin
             from PIL import ImageDraw
 
-            page_annotations: dict[int, list[tuple[str, tuple[float, ...]]]] = defaultdict(list)
+            page_annotations: dict[int, list[tuple[str, tuple[float, ...]]]] = defaultdict(list)  # noqa: E501
             for item, _lvl in doc.iterate_items():
                 if not isinstance(item, DocItem):
                     continue
@@ -98,7 +96,7 @@ def parse_file(
                 for prov in item.prov:
                     bbox = prov.bbox
                     page_annotations[prov.page_no].append(
-                        (label, (bbox.l, bbox.t, bbox.r, bbox.b, bbox.coord_origin))
+                        (label, (bbox.l, bbox.t, bbox.r, bbox.b, bbox.coord_origin))  # type: ignore[arg-type]
                     )
 
             # Color map for different element types
@@ -116,7 +114,7 @@ def parse_file(
             for page_no, page in doc.pages.items():
                 img_path = save_images / f"{stem}-page-{page_no}.png"
                 try:
-                    img = page.image.pil_image.copy()
+                    img = page.image.pil_image.copy()  # type: ignore[union-attr]
                     draw = ImageDraw.Draw(img)
 
                     # Compute scale factor: image pixels / page points
@@ -129,7 +127,7 @@ def parse_file(
                         page_no, []
                     ):
                         # Convert from PDF coords (bottom-left origin) to image coords
-                        if coord_origin == CoordOrigin.BOTTOMLEFT:
+                        if coord_origin == CoordOrigin.BOTTOMLEFT:  # type: ignore[comparison-overlap]
                             x0 = left * sx
                             y0 = (page_h - top) * sy
                             x1 = right * sx
@@ -204,7 +202,7 @@ def parse_file(
         log(f"  Done in {duration:.1f}s")
 
         return FileResult(
-            **base_result,
+            **base_result,  # type: ignore[arg-type]
             parsed=True,
             page_count=page_count,
             word_count=words,
@@ -220,7 +218,7 @@ def parse_file(
         duration = time.monotonic() - start
         log(f"  Error after {duration:.1f}s: {exc}")
         return FileResult(
-            **base_result,
+            **base_result,  # type: ignore[arg-type]
             parsed=False,
             parse_errors=[str(exc)],
             parse_duration_sec=round(duration, 3),

@@ -1,5 +1,10 @@
 # docscout
 
+[![CI](https://github.com/felixpeters/docscout/actions/workflows/ci.yml/badge.svg)](https://github.com/felixpeters/docscout/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/docscout)](https://pypi.org/project/docscout/)
+[![Python versions](https://img.shields.io/pypi/pyversions/docscout)](https://pypi.org/project/docscout/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 CLI tool for exploratory data analysis of business document databases, designed to inform agentic retrieval/search projects and test dataset curation.
 
 ## Installation
@@ -7,13 +12,14 @@ CLI tool for exploratory data analysis of business document databases, designed 
 Requires Python 3.11+.
 
 ```bash
-pip install .
+pip install docscout
 ```
 
 For development:
 
 ```bash
-pip install -e ".[dev]"
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
 ```
 
 ## Usage
@@ -59,14 +65,18 @@ All other file types found during directory scans are categorized and counted in
 
 ## Development
 
-```bash
-# Run tests
-pytest
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions.
 
-# Lint and format
-ruff check src/ tests/
-ruff format src/ tests/
+```bash
+uv run pytest                          # tests
+uv run ruff check src/ tests/          # lint
+uv run ruff format src/ tests/         # format
+uv run mypy src/                       # type check
 ```
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
