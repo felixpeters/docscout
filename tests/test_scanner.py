@@ -119,7 +119,7 @@ class TestScanDirectory:
     def test_aggregate_metrics(self, sample_dir):
         call_count = 0
 
-        def mock_parse_fn(path):
+        def mock_parse_fn(path, **kwargs):
             nonlocal call_count
             call_count += 1
             from docscout.models import FileResult
