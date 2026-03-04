@@ -1,5 +1,10 @@
 # docscout
 
+[![CI](https://github.com/felixpeters/docscout/actions/workflows/ci.yml/badge.svg)](https://github.com/felixpeters/docscout/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/docscout)](https://pypi.org/project/docscout/)
+[![Python versions](https://img.shields.io/pypi/pyversions/docscout)](https://pypi.org/project/docscout/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 CLI tool for exploratory data analysis of business document databases (PDF, DOCX, PPTX). Designed to inform agentic retrieval/search projects and test dataset curation. Uses [Docling](https://github.com/DS4SD/docling) for document parsing.
 
 ## Installation
@@ -7,11 +12,17 @@ CLI tool for exploratory data analysis of business document databases (PDF, DOCX
 Requires Python 3.11+. Uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```bash
+pip install docscout
+```
+
+Or from source:
+
+```bash
 uv venv && source .venv/bin/activate
 uv pip install -e .
 ```
 
-For development (includes pytest and ruff):
+For development (includes pytest, ruff, mypy, and pre-commit):
 
 ```bash
 uv pip install -e ".[dev]"
@@ -75,6 +86,8 @@ Results are cached in a SQLite database (`~/.cache/docscout/cache.db`) keyed by 
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup instructions.
+
 ```bash
 uv run pytest                        # all tests
 uv run pytest tests/test_parsing.py  # single file
@@ -82,6 +95,7 @@ uv run pytest -k "test_name"         # single test
 
 uv run ruff check src/ tests/        # lint
 uv run ruff format src/ tests/       # format
+uv run mypy src/                     # type check
 ```
 
 ## Future features
@@ -93,6 +107,10 @@ uv run ruff format src/ tests/       # format
 - **Filtering / querying** — e.g. `--filter "tables > 5"`
 - **Parallel parsing** — multi-file parsing via `concurrent.futures`
 - **Cache management CLI** — `docscout cache clear`, `docscout cache stats`
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

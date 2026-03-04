@@ -130,9 +130,7 @@ class TestSingleFile:
 
 class TestDirectory:
     def _mock_summary(self, root, files_with_errors=0):
-        _zero = MetricStats(
-            total=0, avg=0, std=0, median=0, min=0, min_file="", max=0, max_file=""
-        )
+        _zero = MetricStats(total=0, avg=0, std=0, median=0, min=0, min_file="", max=0, max_file="")
         return DirectorySummary(
             root_path=str(root),
             total_files=2,
@@ -142,16 +140,34 @@ class TestDirectory:
             total_headings=3,
             total_sections=2,
             pages_stats=MetricStats(
-                total=10, avg=5.0, std=0, median=5.0,
-                min=5, min_file="a.pdf", max=5, max_file="b.pdf",
+                total=10,
+                avg=5.0,
+                std=0,
+                median=5.0,
+                min=5,
+                min_file="a.pdf",
+                max=5,
+                max_file="b.pdf",
             ),
             words_stats=MetricStats(
-                total=500, avg=250.0, std=0, median=250.0,
-                min=250, min_file="a.pdf", max=250, max_file="b.pdf",
+                total=500,
+                avg=250.0,
+                std=0,
+                median=250.0,
+                min=250,
+                min_file="a.pdf",
+                max=250,
+                max_file="b.pdf",
             ),
             tables_stats=MetricStats(
-                total=1, avg=0.5, std=0.7, median=0.5,
-                min=0, min_file="a.pdf", max=1, max_file="b.pdf",
+                total=1,
+                avg=0.5,
+                std=0.7,
+                median=0.5,
+                min=0,
+                min_file="a.pdf",
+                max=1,
+                max_file="b.pdf",
             ),
             figures_stats=_zero,
             filetype_distribution=[],

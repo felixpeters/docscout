@@ -62,9 +62,7 @@ def scan_directory(
             TextColumn("{task.fields[status]}"),
             transient=True,
         ) as progress:
-            file_task = progress.add_task(
-                "Files", total=len(supported_files), status=""
-            )
+            file_task = progress.add_task("Files", total=len(supported_files), status="")
 
             for f in supported_files:
                 progress.update(file_task, status=f"  {f.name}")
@@ -143,9 +141,8 @@ def scan_directory(
     total_headings = sum(r.heading_count or 0 for r in analyzed)
     total_sections = sum(r.section_count or 0 for r in analyzed)
 
-    def _compute_stats(
-        results: list[FileResult], attr: str
-    ) -> MetricStats:
+    def _compute_stats(results: list[FileResult], attr: str) -> MetricStats:
+        """Compute descriptive statistics for a given metric across file results."""
         values = [(getattr(r, attr) or 0, r.file_path) for r in results]
         nums = [v for v, _ in values]
         total = sum(nums)
