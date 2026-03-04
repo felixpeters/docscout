@@ -19,6 +19,7 @@ app = typer.Typer(help="EDA for single documents and document databases.")
 
 
 def _version_callback(value: bool) -> None:
+    """Print version and exit when --version is passed."""
     if value:
         typer.echo(f"docscout {__version__}")
         raise typer.Exit()
@@ -71,6 +72,7 @@ def _handle_file(
     cache_dir: str | None = None,
     no_cache: bool = False,
 ) -> None:
+    """Parse a single file (with caching) and render or print JSON."""
     ext = target.suffix.lower().lstrip(".")
     if not is_supported(ext):
         supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
@@ -121,6 +123,7 @@ def _handle_directory(
     no_cache: bool,
     save_images: Path | None,
 ) -> None:
+    """Scan a directory, aggregate results, and render or print JSON."""
     cache_path = Path(cache_dir) if cache_dir else None
     cache = Cache(cache_dir=cache_path)
 

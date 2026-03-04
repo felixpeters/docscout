@@ -31,12 +31,14 @@ class Cache:
     """SQLite-backed file result cache."""
 
     def __init__(self, cache_dir: Path | None = None) -> None:
+        """Initialize the cache, creating the database if needed."""
         self.cache_dir = cache_dir or _default_cache_dir()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.cache_dir / "cache.db"
         self._connect()
 
     def _connect(self) -> None:
+        """Open or recreate the SQLite database connection."""
         try:
             self._conn = sqlite3.connect(str(self.db_path))
             self._conn.execute(_SCHEMA)
