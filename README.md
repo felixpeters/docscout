@@ -84,6 +84,16 @@ uv run ruff check src/ tests/        # lint
 uv run ruff format src/ tests/       # format
 ```
 
+## Future features
+
+- **`--no-recurse` flag** — flat directory scan (no subdirectory traversal)
+- **Language detection** — per-document language via `langdetect` or similar
+- **Python API** — expose `parse_file()` and `scan_directory()` as a public library interface
+- **Additional formats** — images (dimensions, EXIF), CSV/XLSX (row/column count), HTML
+- **Filtering / querying** — e.g. `--filter "tables > 5"`
+- **Parallel parsing** — multi-file parsing via `concurrent.futures`
+- **Cache management CLI** — `docscout cache clear`, `docscout cache stats`
+
 ## License
 
 MIT
