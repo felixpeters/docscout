@@ -1,5 +1,8 @@
 """Document parsing layer wrapping Docling."""
 
+import shutil
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Callable
@@ -7,6 +10,40 @@ from typing import Callable
 from docscout.categories import get_category, is_supported
 from docscout.logging import log
 from docscout.models import FileResult
+
+# Formats that should be converted to PDF via LibreOffice before parsing
+_CONVERT_TO_PDF_FORMATS = {"pptx", "docx"}
+
+
+def _convert_to_pdf(source: Path) -> Path:
+    """Convert a file to PDF via LibreOffice into a temp directory.
+
+    Returns the path to the generated PDF.
+    Raises RuntimeError if LibreOffice is not installed or conversion fails.
+    The caller is responsible for cleaning up the parent temp directory.
+    """
+    soffice = shutil.which("soffice")
+    if soffice is None:
+        raise RuntimeError(
+            "LibreOffice (soffice) is required for PPTX/DOCX parsing but was not found. "
+            "Install it from https://www.libreoffice.org/"
+        )
+
+    tmpdir = tempfile.mkdtemp(prefix="docscout-")
+    cmd = [soffice, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(source)]
+    log(f"  Converting to PDF via LibreOffice ...")
+    proc = subprocess.run(cmd, capture_output=True, timeout=120)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"LibreOffice conversion failed (exit {proc.returncode}): "
+            f"{proc.stderr.decode(errors='replace').strip()}"
+        )
+
+    pdf_path = Path(tmpdir) / (source.stem + ".pdf")
+    if not pdf_path.exists():
+        raise RuntimeError(f"LibreOffice did not produce expected PDF: {pdf_path.name}")
+
+    return pdf_path
 
 
 def parse_file(
@@ -40,6 +77,7 @@ def parse_file(
         return FileResult(**base_result, parsed=False)
 
     start = time.monotonic()
+    tmp_pdf_dir = None
     try:
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.document import DocItem
@@ -47,6 +85,13 @@ def parse_file(
         from docling.document_converter import DocumentConverter, PdfFormatOption
 
         log(f"Parsing {path.name} ...")
+
+        # For PPTX/DOCX: convert to PDF first, then parse the PDF
+        parse_path = path
+        if ext in _CONVERT_TO_PDF_FORMATS:
+            pdf_path = _convert_to_pdf(path)
+            tmp_pdf_dir = pdf_path.parent
+            parse_path = pdf_path
 
         # Configure pipeline options for image generation when requested
         format_options = {}
@@ -60,7 +105,7 @@ def parse_file(
             log(f"  Image generation enabled (scale=2.0)")
 
         converter = DocumentConverter(format_options=format_options)
-        result = converter.convert(str(path))
+        result = converter.convert(str(parse_path))
         doc = result.document
 
         log(f"  Conversion complete, extracting metrics ...")
@@ -116,6 +161,10 @@ def parse_file(
             for page_no, page in doc.pages.items():
                 img_path = save_images / f"{stem}-page-{page_no}.png"
                 try:
+                    if not page.image or not page.image.pil_image:
+                        log(f"  No image available for page {page_no}, skipping")
+                        continue
+
                     img = page.image.pil_image.copy()
                     draw = ImageDraw.Draw(img)
 
@@ -170,7 +219,7 @@ def parse_file(
                     table_count += 1
                 elif label_name == "picture":
                     figure_count += 1
-                elif label_name == "section_header":
+                elif label_name in ("section_header", "title"):
                     heading_count += 1
                     level = item.level if hasattr(item, "level") else 1
                     if isinstance(level, int) and level > heading_max_depth:
@@ -225,3 +274,7 @@ def parse_file(
             parse_errors=[str(exc)],
             parse_duration_sec=round(duration, 3),
         )
+    finally:
+        # Clean up temp PDF directory
+        if tmp_pdf_dir is not None:
+            shutil.rmtree(tmp_pdf_dir, ignore_errors=True)
