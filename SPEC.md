@@ -396,7 +396,7 @@ Uses `src/` layout so the installed package is always the built one, not the sou
 name = "docscout"
 version = "0.1.0"
 description = "EDA for single documents and document databases"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
     "docling>=2.0",
     "typer>=0.9",
