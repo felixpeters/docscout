@@ -86,12 +86,15 @@ def render_file_result(result: FileResult) -> None:
             console.print(f"  [yellow]Warning:[/yellow] {warn}")
 
 
-def _file_link(path: str) -> str:
-    """Format a file path as a clickable terminal hyperlink."""
-    return f"[link=file://{path}]{path}[/link]"
+def _file_link(path: str, root: str) -> str:
+    """Format a relative file path as a clickable terminal hyperlink."""
+    from pathlib import Path
+
+    abs_path = Path(root) / path
+    return f"[link=file://{abs_path}]{path}[/link]"
 
 
-def _stats_row(label: str, stats: MetricStats, fmt: str = ",") -> list[str]:
+def _stats_row(label: str, stats: MetricStats, root: str, fmt: str = ",") -> list[str]:
     """Build a table row from MetricStats."""
     return [
         label,
@@ -99,8 +102,8 @@ def _stats_row(label: str, stats: MetricStats, fmt: str = ",") -> list[str]:
         f"{stats.avg:{fmt}}",
         f"{stats.std:{fmt}}",
         f"{stats.median:{fmt}}",
-        f"{stats.min:,}  [dim]({_file_link(stats.min_file)})[/dim]",
-        f"{stats.max:,}  [dim]({_file_link(stats.max_file)})[/dim]",
+        f"{stats.min:,}  [dim]({_file_link(stats.min_file, root)})[/dim]",
+        f"{stats.max:,}  [dim]({_file_link(stats.max_file, root)})[/dim]",
     ]
 
 
@@ -124,10 +127,11 @@ def render_directory_summary(summary: DirectorySummary) -> None:
     stats_table.add_column("Min (file)", justify="right", no_wrap=False)
     stats_table.add_column("Max (file)", justify="right", no_wrap=False)
 
-    stats_table.add_row(*_stats_row("Pages", summary.pages_stats))
-    stats_table.add_row(*_stats_row("Words", summary.words_stats))
-    stats_table.add_row(*_stats_row("Tables", summary.tables_stats))
-    stats_table.add_row(*_stats_row("Figures", summary.figures_stats))
+    root = summary.root_path
+    stats_table.add_row(*_stats_row("Pages", summary.pages_stats, root))
+    stats_table.add_row(*_stats_row("Words", summary.words_stats, root))
+    stats_table.add_row(*_stats_row("Tables", summary.tables_stats, root))
+    stats_table.add_row(*_stats_row("Figures", summary.figures_stats, root))
 
     console.print()
     console.print(stats_table)
