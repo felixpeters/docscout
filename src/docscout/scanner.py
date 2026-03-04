@@ -6,10 +6,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from rich.progress import Progress
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from docscout.cache import Cache
 from docscout.categories import get_category, is_supported
+from docscout.logging import log
 from docscout.models import DirectorySummary, FileResult, FiletypeCount
 from docscout.parsing import parse_file
 
@@ -30,10 +31,12 @@ def scan_directory(
     root: Path,
     cache: Cache | None = None,
     no_cache: bool = False,
+    save_images: Path | None = None,
 ) -> DirectorySummary:
     """Scan a directory tree and return aggregate results."""
     root = root.resolve()
     all_files = discover_files(root)
+    log(f"Discovered {len(all_files)} files under {root}")
 
     # Categorize all files
     file_results: list[FileResult] = []
@@ -44,24 +47,51 @@ def scan_directory(
         if is_supported(ext):
             supported_files.append(f)
 
+    log(f"Supported files to analyze: {len(supported_files)}")
+
     # Check cache and parse supported files
     to_parse: list[Path] = []
     for f in supported_files:
         if cache and not no_cache:
             cached = cache.get(f)
             if cached is not None:
+                log(f"Cache hit: {f.name}")
                 file_results.append(cached)
                 continue
         to_parse.append(f)
 
-    # Parse with progress bar (only on terminal)
+    log(f"Files to parse (uncached): {len(to_parse)}")
+
+    # Parse with nested progress bars (only on terminal)
     if to_parse:
         show_progress = sys.stderr.isatty()
         if show_progress:
-            with Progress(transient=True) as progress:
-                task = progress.add_task("Parsing documents", total=len(to_parse))
+            with Progress(
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                transient=True,
+            ) as progress:
+                file_task = progress.add_task(
+                    "Files", total=len(to_parse)
+                )
+                page_task = progress.add_task("Pages", total=0, visible=False)
+
                 for f in to_parse:
-                    result = parse_file(f)
+                    progress.update(
+                        page_task, completed=0, total=0, visible=False
+                    )
+
+                    def _on_page_done(current: int, total: int) -> None:
+                        progress.update(
+                            page_task, completed=current, total=total, visible=True
+                        )
+
+                    result = parse_file(
+                        f,
+                        save_images=save_images,
+                        on_page_done=_on_page_done,
+                    )
                     # Make path relative to root for display
                     try:
                         result.file_path = str(f.relative_to(root))
@@ -70,10 +100,10 @@ def scan_directory(
                     file_results.append(result)
                     if cache:
                         cache.put(f, result)
-                    progress.advance(task)
+                    progress.advance(file_task)
         else:
             for f in to_parse:
-                result = parse_file(f)
+                result = parse_file(f, save_images=save_images)
                 try:
                     result.file_path = str(f.relative_to(root))
                 except ValueError:

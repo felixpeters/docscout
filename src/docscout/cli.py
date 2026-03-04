@@ -1,14 +1,17 @@
 """CLI entry point for docscout."""
 
+import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn
 
 from docscout import __version__
 from docscout.cache import Cache
 from docscout.categories import SUPPORTED_EXTENSIONS, is_supported
 from docscout.display import render_directory_detail, render_directory_summary, render_file_result
+from docscout.logging import log, set_verbose
 from docscout.parsing import parse_file
 from docscout.scanner import scan_directory
 
@@ -30,12 +33,22 @@ def main(
         Optional[str], typer.Option("--cache-dir", help="Override cache directory")
     ] = None,
     no_cache: Annotated[bool, typer.Option("--no-cache", help="Bypass cache")] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose output on stderr")
+    ] = False,
+    save_images: Annotated[
+        Optional[str],
+        typer.Option("--save-images", help="Save annotated page images to this directory"),
+    ] = None,
     version: Annotated[
         Optional[bool],
         typer.Option("--version", callback=_version_callback, is_eager=True, help="Print version"),
     ] = None,
 ) -> None:
     """Analyze a document or directory of documents."""
+    set_verbose(verbose)
+    images_dir = Path(save_images) if save_images else None
+
     target = Path(path)
 
     if not target.exists():
@@ -43,15 +56,15 @@ def main(
         raise typer.Exit(code=1)
 
     if target.is_file():
-        _handle_file(target, format)
+        _handle_file(target, format, images_dir)
     elif target.is_dir():
-        _handle_directory(target, format, detail, cache_dir, no_cache)
+        _handle_directory(target, format, detail, cache_dir, no_cache, images_dir)
     else:
         typer.echo(f"Error: unsupported path type: {path}", err=True)
         raise typer.Exit(code=1)
 
 
-def _handle_file(target: Path, fmt: str) -> None:
+def _handle_file(target: Path, fmt: str, save_images: Path | None) -> None:
     ext = target.suffix.lower().lstrip(".")
     if not is_supported(ext):
         supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
@@ -61,7 +74,26 @@ def _handle_file(target: Path, fmt: str) -> None:
         )
         raise typer.Exit(code=1)
 
-    result = parse_file(target)
+    log(f"Analyzing single file: {target}")
+
+    show_progress = sys.stderr.isatty()
+    if show_progress:
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            transient=True,
+        ) as progress:
+            page_task = progress.add_task("Pages", total=0, visible=False)
+
+            def _on_page_done(current: int, total: int) -> None:
+                progress.update(page_task, completed=current, total=total, visible=True)
+
+            result = parse_file(
+                target, save_images=save_images, on_page_done=_on_page_done
+            )
+    else:
+        result = parse_file(target, save_images=save_images)
 
     if fmt == "json":
         typer.echo(result.model_dump_json(indent=2))
@@ -73,12 +105,21 @@ def _handle_file(target: Path, fmt: str) -> None:
 
 
 def _handle_directory(
-    target: Path, fmt: str, detail: bool, cache_dir: str | None, no_cache: bool
+    target: Path,
+    fmt: str,
+    detail: bool,
+    cache_dir: str | None,
+    no_cache: bool,
+    save_images: Path | None,
 ) -> None:
     cache_path = Path(cache_dir) if cache_dir else None
     cache = Cache(cache_dir=cache_path)
 
-    summary = scan_directory(target, cache=cache, no_cache=no_cache)
+    log(f"Scanning directory: {target}")
+
+    summary = scan_directory(
+        target, cache=cache, no_cache=no_cache, save_images=save_images
+    )
 
     if fmt == "json":
         typer.echo(summary.model_dump_json(indent=2))

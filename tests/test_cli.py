@@ -71,6 +71,62 @@ class TestSingleFile:
         result = runner.invoke(app, [str(f)])
         assert result.exit_code == 1
 
+    @patch("docscout.cli.parse_file")
+    @patch("docscout.cli.render_file_result")
+    def test_verbose_flag_accepted(self, mock_render, mock_parse, tmp_path):
+        f = tmp_path / "test.pdf"
+        f.write_bytes(b"fake pdf")
+        mock_parse.return_value = FileResult(
+            file_path=str(f),
+            file_name="test.pdf",
+            file_size_bytes=8,
+            file_type="pdf",
+            file_category="documents",
+            parsed=True,
+            page_count=1,
+        )
+        result = runner.invoke(app, [str(f), "--verbose"])
+        assert result.exit_code == 0
+
+    @patch("docscout.cli.parse_file")
+    @patch("docscout.cli.render_file_result")
+    def test_verbose_short_flag(self, mock_render, mock_parse, tmp_path):
+        f = tmp_path / "test.pdf"
+        f.write_bytes(b"fake pdf")
+        mock_parse.return_value = FileResult(
+            file_path=str(f),
+            file_name="test.pdf",
+            file_size_bytes=8,
+            file_type="pdf",
+            file_category="documents",
+            parsed=True,
+            page_count=1,
+        )
+        result = runner.invoke(app, [str(f), "-v"])
+        assert result.exit_code == 0
+
+    @patch("docscout.cli.parse_file")
+    @patch("docscout.cli.render_file_result")
+    def test_save_images_flag_accepted(self, mock_render, mock_parse, tmp_path):
+        f = tmp_path / "test.pdf"
+        f.write_bytes(b"fake pdf")
+        images_dir = tmp_path / "images"
+        mock_parse.return_value = FileResult(
+            file_path=str(f),
+            file_name="test.pdf",
+            file_size_bytes=8,
+            file_type="pdf",
+            file_category="documents",
+            parsed=True,
+            page_count=1,
+        )
+        result = runner.invoke(app, [str(f), "--save-images", str(images_dir)])
+        assert result.exit_code == 0
+        # Verify save_images was passed to parse_file
+        mock_parse.assert_called_once()
+        call_kwargs = mock_parse.call_args
+        assert call_kwargs.kwargs.get("save_images") == images_dir
+
 
 class TestDirectory:
     def _mock_summary(self, root, files_with_errors=0):
@@ -128,3 +184,22 @@ class TestDirectory:
         mock_scan.return_value = self._mock_summary(tmp_path, files_with_errors=1)
         result = runner.invoke(app, [str(tmp_path)])
         assert result.exit_code == 2
+
+    @patch("docscout.cli.scan_directory")
+    @patch("docscout.cli.render_directory_summary")
+    @patch("docscout.cli.Cache")
+    def test_verbose_flag_with_directory(self, mock_cache_cls, mock_render, mock_scan, tmp_path):
+        mock_scan.return_value = self._mock_summary(tmp_path)
+        result = runner.invoke(app, [str(tmp_path), "--verbose"])
+        assert result.exit_code == 0
+
+    @patch("docscout.cli.scan_directory")
+    @patch("docscout.cli.render_directory_summary")
+    @patch("docscout.cli.Cache")
+    def test_save_images_passed_to_scanner(self, mock_cache_cls, mock_render, mock_scan, tmp_path):
+        mock_scan.return_value = self._mock_summary(tmp_path)
+        images_dir = tmp_path / "images"
+        result = runner.invoke(app, [str(tmp_path), "--save-images", str(images_dir)])
+        assert result.exit_code == 0
+        call_kwargs = mock_scan.call_args
+        assert call_kwargs.kwargs.get("save_images") == images_dir

@@ -16,14 +16,21 @@ def _setup_docling_mock():
     mock_module = ModuleType("docling")
     mock_dc_module = ModuleType("docling.document_converter")
     mock_dc_module.DocumentConverter = mock_converter_cls
+    mock_dc_module.PdfFormatOption = MagicMock()
     mock_dm_module = ModuleType("docling.datamodel")
     mock_doc_module = ModuleType("docling.datamodel.document")
     mock_doc_module.DocItem = MagicMock
+    mock_bm_module = ModuleType("docling.datamodel.base_models")
+    mock_bm_module.InputFormat = MagicMock()
+    mock_po_module = ModuleType("docling.datamodel.pipeline_options")
+    mock_po_module.PdfPipelineOptions = MagicMock()
 
     sys.modules["docling"] = mock_module
     sys.modules["docling.document_converter"] = mock_dc_module
     sys.modules["docling.datamodel"] = mock_dm_module
     sys.modules["docling.datamodel.document"] = mock_doc_module
+    sys.modules["docling.datamodel.base_models"] = mock_bm_module
+    sys.modules["docling.datamodel.pipeline_options"] = mock_po_module
 
     return mock_converter_cls
 
@@ -130,5 +137,62 @@ class TestParseFile:
             result = parse_file(sample_pdf)
             assert result.parse_duration_sec is not None
             assert result.parse_duration_sec >= 0
+        finally:
+            _cleanup_docling_mock()
+
+    def test_on_page_done_callback(self, sample_pdf):
+        mock_converter_cls = _setup_docling_mock()
+        try:
+            mock_doc = MagicMock()
+            mock_doc.export_to_markdown.return_value = "hello world"
+            mock_doc.pages = {"1": MagicMock(), "2": MagicMock()}
+
+            # Create mock items so callback fires
+            mock_item1 = MagicMock()
+            mock_item1.label = None
+            mock_item2 = MagicMock()
+            mock_item2.label = None
+            mock_doc.iterate_items.return_value = [
+                (mock_item1, 0),
+                (mock_item2, 0),
+            ]
+
+            mock_result = MagicMock()
+            mock_result.document = mock_doc
+            mock_converter_cls.return_value.convert.return_value = mock_result
+
+            pages_seen = []
+
+            def on_page(current, total):
+                pages_seen.append((current, total))
+
+            result = parse_file(sample_pdf, on_page_done=on_page)
+            assert result.parsed is True
+            assert result.page_count == 2
+            # All pages should be signaled
+            assert len(pages_seen) == 2
+            assert pages_seen[-1] == (2, 2)
+        finally:
+            _cleanup_docling_mock()
+
+    def test_save_images_configures_pipeline(self, sample_pdf, tmp_path):
+        mock_converter_cls = _setup_docling_mock()
+        try:
+            mock_doc = MagicMock()
+            mock_doc.export_to_markdown.return_value = "text"
+            mock_doc.pages = {}
+            mock_doc.iterate_items.return_value = []
+
+            mock_result = MagicMock()
+            mock_result.document = mock_doc
+            mock_converter_cls.return_value.convert.return_value = mock_result
+
+            images_dir = tmp_path / "images"
+            result = parse_file(sample_pdf, save_images=images_dir)
+            assert result.parsed is True
+            # DocumentConverter should have been called with format_options
+            call_kwargs = mock_converter_cls.call_args
+            assert "format_options" in call_kwargs.kwargs
+            assert len(call_kwargs.kwargs["format_options"]) > 0
         finally:
             _cleanup_docling_mock()
